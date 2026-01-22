@@ -5,17 +5,25 @@ const PORT = process.env.PORT || 3000;
 
 // ================= CONFIG =================
 const SECRET_KEY = "DQOWHDIUQWHIQUWHDWQIUDHQWIUDHQWHDQWIUFHQIFQ";
-const EXPIRATION_DATE = new Date("2026-02-25T00:00:00Z");
 
-// Key database (use real DB later)
+// ================= KEY DATABASE =================
+// You can add unlimited keys here
 const keys = {
   "1f5531ecdc71b76979960fb624e81154": {
     hwid: null,
-    expires: EXPIRATION_DATE
+    expires: new Date("2026-02-25T00:00:00Z")
+  },
+
+  "TESTKEY-EXPIRES-2025": {
+    hwid: null,
+    expires: new Date("2025-01-01T00:00:00Z")
+  },
+
+  "LIFETIME-KEY-001": {
+    hwid: null,
+    expires: null // null = never expires
   }
 };
-
-const blacklisted = new Set();
 
 // ================= HELPERS =================
 function unauthorized(res) {
@@ -35,7 +43,6 @@ app.get("/v9/auth", (req, res) => {
     t4
   } = req.query;
 
-  // Basic checks
   if (secret !== SECRET_KEY) return unauthorized(res);
   if (!keys[k]) return unauthorized(res);
   if (!hwid) return unauthorized(res);
@@ -43,12 +50,12 @@ app.get("/v9/auth", (req, res) => {
 
   const keyData = keys[k];
 
-  // Expiration check
-  if (new Date() > keyData.expires) {
+  // ⏰ EXPIRATION CHECK
+  if (keyData.expires && new Date() > keyData.expires) {
     return unauthorized(res);
   }
 
-  // HWID lock
+  // 🔒 HWID LOCK
   if (!keyData.hwid) {
     keyData.hwid = hwid;
     console.log(`HWID locked for key ${k}: ${hwid}`);
@@ -67,20 +74,18 @@ app.get("/auth/bl", (req, res) => {
     return res.status(200).send("Invalid request");
   }
 
-  blacklisted.add(K);
-
   console.log("Blacklisted:", {
     key: K,
     reason: r,
     experienceId
   });
 
-  return res.status(200).send(
-    "Key and user blacklisted successfully"
-  );
+  return res
+    .status(200)
+    .send("Key and user blacklisted successfully");
 });
 
 // ================= START =================
 app.listen(PORT, () => {
-  console.log(`Auth server running on ${PORT}`);
+  console.log(`Auth server running on port ${PORT}`);
 });
