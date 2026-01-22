@@ -5,35 +5,26 @@ const PORT = process.env.PORT || 3000;
 // ================= CONFIG =================
 const SECRET_KEY = "DQOWHDIUQWHIQUWHDWQIUDHQWIUDHQWHDQWIUFHQIFQ";
 
-// ================= KEY DATABASE =================
-// Each key can have its own expiration
-// hwid = null → first use will lock it
+// ================= KEYS =================
+// Each key can have its own expiration; hwid null = first use
 const keys = {
-  "1f5531ecdc71b76979960fb624e81154": {
-    hwid: null,
-    expires: new Date("2026-02-25T00:00:00Z")
-  },
-  "TESTKEY-2025": {
-    hwid: null,
-    expires: new Date("2025-01-01T00:00:00Z")
-  },
-  "LIFETIME-KEY-001": {
-    hwid: null,
-    expires: null // null = no expiry
-  }
+  "1f5531ecdc71b76979960fb624e81154": { hwid: null, expires: new Date("2026-02-25T00:00:00Z") },
+  "TESTKEY-2025": { hwid: null, expires: new Date("2025-01-01T00:00:00Z") },
+  "LIFETIME-KEY-001": { hwid: null, expires: null } // null = no expiry
 };
 
 // ================= HELPERS =================
-function unauthorized(res, reason = "Unauthorized") {
+function unauthorized(res, reason = "Unauthorized!") {
   console.log("AUTH FAIL:", reason);
-  return res.status(200).send("Unauthorized!");
+  return res.status(200).send(reason);
 }
 
 // ================= AUTH ROUTE =================
 app.get("/v9/auth", (req, res) => {
   const { SECRET_KEY: secret, k, hwid, experienceId } = req.query;
 
-  console.log("AUTH ATTEMPT:", { key: k, hwid, experienceId, time: new Date() });
+  console.log("==== AUTH ATTEMPT ====");
+  console.log({ key: k, hwid, experienceId, time: new Date() });
 
   if (secret !== SECRET_KEY) return unauthorized(res, "Invalid secret key");
   if (!k || !keys[k]) return unauthorized(res, "Key not found");
@@ -43,21 +34,19 @@ app.get("/v9/auth", (req, res) => {
   const keyData = keys[k];
 
   // ================= EXPIRATION CHECK =================
-  if (keyData.expires && new Date() > keyData.expires) {
-    return unauthorized(res, "Key expired");
-  }
+  if (keyData.expires && new Date() > keyData.expires) return unauthorized(res, "Key expired");
 
   // ================= HWID LOCK =================
   if (!keyData.hwid) {
-    keyData.hwid = hwid; // lock first use
+    keyData.hwid = hwid;
     console.log(`HWID locked for key ${k}: ${hwid}`);
   } else if (keyData.hwid !== hwid) {
-    return unauthorized(res, "HWID mismatch");
+    return unauthorized(res, `HWID mismatch. Expected ${keyData.hwid}, got ${hwid}`);
   }
 
   // ================= SUCCESS =================
   console.log(`AUTH SUCCESS: key ${k} for HWID ${hwid}`);
-  return res.status(200).send(""); // empty = success
+  return res.status(200).send(""); // empty string = success
 });
 
 // ================= HWID RESET (for testing) =================
