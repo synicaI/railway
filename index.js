@@ -20,7 +20,8 @@ const keys = {
   "9d8a7c6f2e3b1a5d0c4f9e8b7a6e1c2d": { hwid: null, expires: null },
   "2c4e7f8a9d1b3e5c6a0f7d82b9e14a6f": { hwid: null, expires: null },
   "b3e8a9f2d1c7e5f4a6b0d98c2a7e14f5": { hwid: null, expires: null },
-  "0f7e2a8b9c5d1e4a6f3b7d98c21e5a64": { hwid: null, expires: null }
+  "0f7e2a8b9c5d1e4a6f3b7d98c21e5a64": { hwid: null, expires: null },
+  "x972jsdjdinsdvbdozopnksd92ejd919": { hwid: null, expires: null }
 };
 
 // ================= HELPERS =================
