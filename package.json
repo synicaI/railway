@@ -1,8 +1,8 @@
 {
-  "name": "roblox-auth",
+  "name": "auth-server",
   "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
