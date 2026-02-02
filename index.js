@@ -1,25 +1,58 @@
 import express from "express";
+import fetch from "node-fetch";
 
 const app = express();
 app.use(express.json());
 
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+
 // ================= KEYS =================
 const keys = new Map();
 
+// ================= HELPER =================
+async function logWebhook(title, fields) {
+    if (!WEBHOOK_URL) return;
+
+    await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            embeds: [{
+                title,
+                color: 0x2b2d31,
+                fields,
+                timestamp: new Date().toISOString()
+            }]
+        })
+    });
+}
+
 // ================= ADMIN ROUTES =================
-app.post("/admin/key/add", (req, res) => {
-    const { key } = req.body;
+app.post("/admin/key/add", async (req, res) => {
+    const { key, admin } = req.body;
     if (!key) return res.status(400).send("Missing key");
 
     keys.set(key, { hwid: null, expires: null });
+
+    await logWebhook("🔑 Key Added", [
+        { name: "Key", value: key, inline: true },
+        { name: "By", value: admin ?? "Unknown", inline: true }
+    ]);
+
     res.send("OK");
 });
 
-app.post("/admin/key/delete", (req, res) => {
-    const { key } = req.body;
+app.post("/admin/key/delete", async (req, res) => {
+    const { key, admin } = req.body;
     if (!keys.has(key)) return res.status(404).send("Not found");
 
     keys.delete(key);
+
+    await logWebhook("🗑️ Key Deleted", [
+        { name: "Key", value: key, inline: true },
+        { name: "By", value: admin ?? "Unknown", inline: true }
+    ]);
+
     res.send("OK");
 });
 
@@ -28,7 +61,7 @@ app.get("/admin/key/list", (req, res) => {
 });
 
 // ================= ROBLOX AUTH =================
-app.get("/v9/auth", (req, res) => {
+app.get("/v9/auth", async (req, res) => {
     const { k, hwid, experienceId } = req.query;
 
     if (!k || !hwid || !experienceId) {
@@ -41,9 +74,16 @@ app.get("/v9/auth", (req, res) => {
 
     const data = keys.get(k);
 
+    // HWID lock
     if (data.hwid === null) {
         data.hwid = hwid;
         keys.set(k, data);
+
+        await logWebhook("🔒 HWID Locked", [
+            { name: "Key", value: k },
+            { name: "HWID", value: hwid },
+            { name: "ExperienceId", value: experienceId }
+        ]);
     }
 
     if (data.hwid !== hwid) {
