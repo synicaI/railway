@@ -1,5 +1,4 @@
 import express from "express";
-import fetch from "node-fetch";
 
 const app = express();
 app.use(express.json());
@@ -95,4 +94,6 @@ app.get("/v9/auth", async (req, res) => {
 
 // ================= START =================
 const PORT = process.env.PORT || 8080;
-app.listen(PORT);
+app.listen(PORT, () => {
+    console.log(`Auth server running on port ${PORT}`);
+});
