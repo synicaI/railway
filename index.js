@@ -1,93 +1,68 @@
 import express from "express";
-
 const app = express();
+
+const PORT = process.env.PORT || 8080;
+const SECRET_KEY = "DQOWHDIUQWHIQUWHDWQIUDHQWIUDHQWHDQWIUFHQIFQ";
+
 app.use(express.json());
 
-const PORT = 8080;
-const SECRET_KEY = process.env.SECRET_KEY || "CHANGE_ME";
+// KEY STORE (memory, same as before)
+const keys = {};
 
-// =====================
-// IN-MEMORY KEY STORE
-// =====================
-// key : { hwid: string | null }
-const KEYS = {};
+// ===== AUTH (ROBLOX) =====
+app.get("/v9/auth", (req, res) => {
+  const { secret, k, hwid } = req.query;
 
-// =====================
-// AUTH MIDDLEWARE
-// =====================
-function auth(req, res, next) {
-  if (req.headers["x-secret"] !== SECRET_KEY) {
+  if (secret !== SECRET_KEY)
+    return res.status(403).send("Invalid secret");
+
+  if (!k || !keys[k])
+    return res.status(403).send("Key not found");
+
+  if (!hwid)
+    return res.status(403).send("HWID missing");
+
+  const data = keys[k];
+
+  if (!data.hwid) {
+    data.hwid = hwid; // FIRST EXEC LOCK
+  } else if (data.hwid !== hwid) {
+    return res.status(403).send("HWID mismatch");
+  }
+
+  return res.status(200).send("");
+});
+
+// ===== DISCORD COMMAND ROUTES =====
+app.post("/key/add", (req, res) => {
+  const { secret, key } = req.body;
+  if (secret !== SECRET_KEY) return res.status(403).json({ error: "Forbidden" });
+
+  keys[key] = { hwid: null };
+  return res.json({ ok: true });
+});
+
+app.post("/key/delete", (req, res) => {
+  const { secret, key } = req.body;
+  if (secret !== SECRET_KEY) return res.status(403).json({ error: "Forbidden" });
+
+  delete keys[key];
+  return res.json({ ok: true });
+});
+
+app.post("/key/reset", (req, res) => {
+  const { secret, key } = req.body;
+  if (secret !== SECRET_KEY) return res.status(403).json({ error: "Forbidden" });
+
+  if (keys[key]) keys[key].hwid = null;
+  return res.json({ ok: true });
+});
+
+app.get("/key/list", (req, res) => {
+  if (req.query.secret !== SECRET_KEY)
     return res.status(403).json({ error: "Forbidden" });
-  }
-  next();
-}
 
-// =====================
-// DISCORD ROUTES
-// =====================
-
-// ADD KEY
-app.post("/key/add", auth, (req, res) => {
-  const { key } = req.body;
-  if (!key) return res.status(400).json({ error: "Missing key" });
-
-  if (!KEYS[key]) {
-    KEYS[key] = { hwid: null };
-  }
-
-  res.json({ success: true });
-});
-
-// DELETE KEY
-app.post("/key/delete", auth, (req, res) => {
-  const { key } = req.body;
-  if (!key) return res.status(400).json({ error: "Missing key" });
-
-  delete KEYS[key];
-  res.json({ success: true });
-});
-
-// RESET HWID
-app.post("/key/reset", auth, (req, res) => {
-  const { key } = req.body;
-  if (!KEYS[key]) return res.status(404).json({ error: "Key not found" });
-
-  KEYS[key].hwid = null;
-  res.json({ success: true });
-});
-
-// LIST KEYS
-app.get("/key/list", auth, (req, res) => {
-  res.json({
-    keys: Object.keys(KEYS).map(k => ({
-      key: k,
-      hwid: KEYS[k].hwid
-    }))
-  });
-});
-
-// =====================
-// ROBLOX VERIFY
-// =====================
-app.post("/auth/verify", (req, res) => {
-  const { key, hwid } = req.body;
-
-  if (!KEYS[key]) {
-    return res.json({ valid: false, reason: "Invalid key" });
-  }
-
-  // first execution → lock HWID
-  if (KEYS[key].hwid === null) {
-    KEYS[key].hwid = hwid;
-    return res.json({ valid: true, first: true });
-  }
-
-  // HWID mismatch
-  if (KEYS[key].hwid !== hwid) {
-    return res.json({ valid: false, reason: "HWID mismatch" });
-  }
-
-  res.json({ valid: true });
+  return res.json(Object.keys(keys));
 });
 
 app.listen(PORT, () => {
