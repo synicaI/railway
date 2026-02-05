@@ -1,85 +1,70 @@
-import express from "express"
-import bodyParser from "body-parser"
+import express from "express";
+const app = express();
 
-const app = express()
-const PORT = 8080
-const SECRET_KEY = "DQOWHDIUQWHIQUWHDWQIUDHQWIUDHQWHDQWIUFHQIFQ"
+const PORT = process.env.PORT || 8080;
+const SECRET_KEY = "DQOWHDIUQWHIQUWHDWQIUDHQWIUDHQWHDQWIUFHQIFQ";
 
-app.use(bodyParser.json())
+app.use(express.json());
 
-// IN-MEMORY STORE
-const keys = {}
+// KEY STORE (memory, same as before)
+const keys = {};
 
-// ─────────────────────────────
-// ADD KEY
+// ===== AUTH (ROBLOX) =====
+app.get("/v9/auth", (req, res) => {
+  const { secret, k, hwid } = req.query;
+
+  if (secret !== SECRET_KEY)
+    return res.status(403).send("Invalid secret");
+
+  if (!k || !keys[k])
+    return res.status(403).send("Key not found");
+
+  if (!hwid)
+    return res.status(403).send("HWID missing");
+
+  const data = keys[k];
+
+  if (!data.hwid) {
+    data.hwid = hwid; // FIRST EXEC LOCK
+  } else if (data.hwid !== hwid) {
+    return res.status(403).send("HWID mismatch");
+  }
+
+  return res.status(200).send("");
+});
+
+// ===== DISCORD COMMAND ROUTES =====
 app.post("/key/add", (req, res) => {
-    if (req.headers.authorization !== SECRET_KEY)
-        return res.status(403).json({ error: "Forbidden" })
+  const { secret, key } = req.body;
+  if (secret !== SECRET_KEY) return res.status(403).json({ error: "Forbidden" });
 
-    const { key } = req.body
-    if (!key) return res.status(400).json({ error: "No key" })
+  keys[key] = { hwid: null };
+  return res.json({ ok: true });
+});
 
-    if (!keys[key]) {
-        keys[key] = { hwid: null }
-    }
-
-    res.json({ success: true })
-})
-
-// DELETE KEY
 app.post("/key/delete", (req, res) => {
-    if (req.headers.authorization !== SECRET_KEY)
-        return res.status(403).json({ error: "Forbidden" })
+  const { secret, key } = req.body;
+  if (secret !== SECRET_KEY) return res.status(403).json({ error: "Forbidden" });
 
-    const { key } = req.body
-    delete keys[key]
+  delete keys[key];
+  return res.json({ ok: true });
+});
 
-    res.json({ success: true })
-})
-
-// RESET HWID
 app.post("/key/reset", (req, res) => {
-    if (req.headers.authorization !== SECRET_KEY)
-        return res.status(403).json({ error: "Forbidden" })
+  const { secret, key } = req.body;
+  if (secret !== SECRET_KEY) return res.status(403).json({ error: "Forbidden" });
 
-    const { key } = req.body
-    if (!keys[key]) return res.status(404).json({ error: "Key not found" })
+  if (keys[key]) keys[key].hwid = null;
+  return res.json({ ok: true });
+});
 
-    keys[key].hwid = null
-    res.json({ success: true })
-})
-
-// LIST KEYS
 app.get("/key/list", (req, res) => {
-    if (req.query.secret !== SECRET_KEY)
-        return res.status(403).json({ error: "Forbidden" })
+  if (req.query.secret !== SECRET_KEY)
+    return res.status(403).json({ error: "Forbidden" });
 
-    res.json(keys)
-})
-
-// ROBLOX AUTH
-app.post("/auth", (req, res) => {
-    const { key, hwid } = req.body
-    const entry = keys[key]
-
-    if (!entry) {
-        return res.json({ success: false, reason: "Invalid key" })
-    }
-
-    // FIRST EXECUTION → LOCK HWID
-    if (entry.hwid === null) {
-        entry.hwid = hwid
-        return res.json({ success: true, first: true })
-    }
-
-    // HWID CHECK
-    if (entry.hwid !== hwid) {
-        return res.json({ success: false, reason: "HWID mismatch" })
-    }
-
-    res.json({ success: true })
-})
+  return res.json(Object.keys(keys));
+});
 
 app.listen(PORT, () => {
-    console.log("Auth server running on", PORT)
-})
+  console.log("Auth server running on", PORT);
+});
